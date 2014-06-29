@@ -1,0 +1,112 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>IoT Patterns</title>
+    <link rel="stylesheet" href="Content/bootstrap.min.css" />
+    <link rel="stylesheet" href="Content/site.css" />
+</head>
+<body>
+    <div class="container">
+        <h1>Telemetry</h1>
+        <div class="row">
+            <div class="col-md-6 scrollable">
+                <ul id="telemetryMessages"></ul>      
+            </div>
+            <div class="col-md-6" id="chart">
+            </div>
+        </div>
+    </div>
+    <script src="Scripts/jquery-1.10.2.min.js"></script>
+    <script src="Scripts/jquery.signalR-2.0.2.min.js"></script>
+    <script src="Scripts/highcharts.js"></script>
+    <script src="signalr/hubs"></script>
+    <script type="text/javascript">
+        $(function () {
+            var telemetry = $.connection.telemetryHub;
+
+            var telemetryEvents = [];
+
+            telemetry.client.onPositionMessage = function (timeStamp, x, y) {
+
+                var event = {
+                    ts: new Date(timeStamp).getTime(),
+                    x: x,
+                    y: y
+                };
+                telemetryEvents.push(event);
+
+                var encodedTs = $('<div />').text(event.ts).html();
+                var encodedX = $('<div />').text(event.x).html();
+                var encodedY = $('<div />').text(event.y).html();
+                $('#telemetryMessages').append('<li><strong>' + encodedTs
+                    + '</strong>:&nbsp;&nbsp;X:' + encodedX + '&nbsp; Y: ' + encodedY + '</li>');
+            };
+
+            var initialSeriesData = function() {
+                var data = [],
+                    time = (new Date()).getTime(),
+                    i;
+
+                for (i = -19; i <= 0; i++) {
+                    data.push({
+                        x: time + i * 500,
+                        y: 0
+                    });
+                }
+                return data;
+            };
+
+            $("#chart").highcharts({
+                chart: {
+                    type: 'spline',
+                    animation: Highcharts.svg,
+                    events: {
+                        load: function() {
+                            var seriesY = this.series[0];
+                            var seriesX = this.series[1];
+                            setInterval(function () {
+                                while (telemetryEvents.length > 0) {
+                                    var item = telemetryEvents.shift();
+                                    seriesY.addPoint([item.ts, item.y], true, true);
+                                    seriesX.addPoint([item.ts, item.x], true, true);
+                                }
+                            }, 1000);
+                        }
+                    }
+                },
+                title: {
+                    text: 'G-Force'
+                },
+                xAxis: {
+                    type: 'datetime',
+                    tickPixelInterval: 100
+                },
+                yAxis: {
+                    title: {
+                        text: 'Force'
+                    },
+                    plotLines : [
+                    {
+                        value: 0,
+                        width: 1,
+                        color: '#808080'
+                    }]
+                },
+                series: [
+                {
+                    name: 'Y',
+                    data: initialSeriesData()
+                }, {
+                    name: 'X',
+                    data: initialSeriesData()
+                }]
+            });
+
+            $.connection.hub.start();
+        });
+    </script>
+</body>
+</html>

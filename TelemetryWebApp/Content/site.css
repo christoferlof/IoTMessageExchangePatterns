@@ -1,0 +1,8 @@
+﻿.scrollable {
+  height: 340px;
+  overflow-y: scroll;
+}
+
+#chart {
+    height: 340px;
+}
