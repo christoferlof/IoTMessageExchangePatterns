@@ -9,31 +9,58 @@
 
     public class TelemetryHub : Hub
     {
-        private MessageReceiver receiver;
+        private MessageReceiver telemetryReceiver;
+
+        private TopicClient commandClient;
 
         public TelemetryHub()
         {
             var factory = MessagingFactory.CreateFromConnectionString(
                 ConfigurationManager.AppSettings["sb:connectionString"]);
 
-            receiver = factory.CreateMessageReceiver(
-                ConfigurationManager.AppSettings["sb:entityPath"],
+            telemetryReceiver = factory.CreateMessageReceiver(
+                ConfigurationManager.AppSettings["sb:outboundEntityPath"],
                 ReceiveMode.ReceiveAndDelete);
 
-            receiver.OnMessage(OnMessage, new OnMessageOptions { AutoComplete = true });
+            telemetryReceiver.OnMessage(OnMessage, new OnMessageOptions { AutoComplete = true });
+
+            commandClient = factory.CreateTopicClient(ConfigurationManager.AppSettings["sb:inboundEntityPath"]);
         }
 
         private void OnMessage(BrokeredMessage message)
         {
-            if (!message.Properties.ContainsKey("ts"))
+            if (!message.Properties.ContainsKey("message-type"))
             {
                 return;
             }
 
-            var context = GlobalHost.ConnectionManager.GetHubContext<TelemetryHub>();
-            //var timeStamp = new DateTime((long)message.Properties["ts"]).ToLongTimeString();
-            var epoch = (long)message.Properties["ts"] / 10000; //device is at year 0
-            context.Clients.All.onPositionMessage(epoch, message.Properties["x"], message.Properties["y"]);
+            string messageType = (string)message.Properties["message-type"];
+            IHubContext context = GlobalHost.ConnectionManager.GetHubContext<TelemetryHub>();
+
+            if (messageType == "telemetry")
+            {
+                var epoch = (long)message.Properties["ts"] / 10000;
+                context.Clients.All.OnPositionMessage(
+                    epoch, 
+                    message.Properties["x"], 
+                    message.Properties["y"]);
+            }
+
+            if (messageType == "command-response")
+            {
+                context.Clients.All.OnCommandResponseMessage(
+                    message.Properties["status"],
+                    message.Properties["receiptient"]);
+            }
+        }
+
+        public void SendCommand(int fadeDuration, string respondTo)
+        {
+            var message = new BrokeredMessage();
+            message.TimeToLive = new TimeSpan(0,0,0,30);
+            message.Properties.Add("fade", fadeDuration);
+            message.Properties.Add("respondTo", respondTo);
+            commandClient.Send(message);
         }
 
     }

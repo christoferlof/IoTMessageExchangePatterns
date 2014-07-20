@@ -27,6 +27,9 @@ namespace TelemetryDevice {
         /// <summary>The Ethernet_J11D (Premium) module using socket 7 of the mainboard.</summary>
         private Gadgeteer.Modules.GHIElectronics.Ethernet_J11D ethernet_J11D;
         
+        /// <summary>The MulticolorLed module using socket 11 of the mainboard.</summary>
+        private Gadgeteer.Modules.GHIElectronics.MulticolorLed multicolorLed;
+        
         /// <summary>This property provides access to the Mainboard API. This is normally not necessary for an end user program.</summary>
         protected new static GHIElectronics.Gadgeteer.FEZSpider Mainboard {
             get {
@@ -53,6 +56,7 @@ namespace TelemetryDevice {
             this.usbClientDP = new GTM.GHIElectronics.UsbClientDP(1);
             this.calibrateButton = new GTM.GHIElectronics.Button(4);
             this.ethernet_J11D = new GTM.GHIElectronics.Ethernet_J11D(7);
+            this.multicolorLed = new GTM.GHIElectronics.MulticolorLed(11);
         }
     }
 }
