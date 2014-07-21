@@ -2,7 +2,6 @@
 {
     using System;
     using System.Configuration;
-    using System.Web;
 
     using Microsoft.AspNet.SignalR;
     using Microsoft.ServiceBus.Messaging;
@@ -52,15 +51,31 @@
                     message.Properties["status"],
                     message.Properties["receiptient"]);
             }
+
+            if (messageType == "inquiry")
+            {
+                context.Clients.All.OnInquiry(message.Properties["device-id"]);
+            }
         }
 
         public void SendCommand(int fadeDuration, string respondTo)
         {
             var message = new BrokeredMessage();
             message.TimeToLive = new TimeSpan(0,0,0,30);
+            message.Properties.Add("message-type", "command");
             message.Properties.Add("fade", fadeDuration);
             message.Properties.Add("respondTo", respondTo);
             commandClient.Send(message);
+        }
+
+        public void SendInquiryResponse(bool shouldWarn)
+        {
+            var message = new BrokeredMessage();
+            message.TimeToLive = new TimeSpan(0, 0, 0, 30);
+            message.Properties.Add("message-type", "inquiry-response");
+            message.Properties.Add("should-warn", shouldWarn);
+            commandClient.Send(message);
+            
         }
 
     }

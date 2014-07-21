@@ -22,7 +22,7 @@ namespace TelemetryDevice {
         private Gadgeteer.Modules.GHIElectronics.UsbClientDP usbClientDP;
         
         /// <summary>The Button module using socket 4 of the mainboard.</summary>
-        private Gadgeteer.Modules.GHIElectronics.Button calibrateButton;
+        private Gadgeteer.Modules.GHIElectronics.Button button;
         
         /// <summary>The Ethernet_J11D (Premium) module using socket 7 of the mainboard.</summary>
         private Gadgeteer.Modules.GHIElectronics.Ethernet_J11D ethernet_J11D;
@@ -54,7 +54,7 @@ namespace TelemetryDevice {
         private void InitializeModules() {
             this.joystick = new GTM.GHIElectronics.Joystick(9);
             this.usbClientDP = new GTM.GHIElectronics.UsbClientDP(1);
-            this.calibrateButton = new GTM.GHIElectronics.Button(4);
+            this.button = new GTM.GHIElectronics.Button(4);
             this.ethernet_J11D = new GTM.GHIElectronics.Ethernet_J11D(7);
             this.multicolorLed = new GTM.GHIElectronics.MulticolorLed(11);
         }

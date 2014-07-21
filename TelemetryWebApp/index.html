@@ -39,10 +39,22 @@
                 <ul id="commandMessages"></ul>
             </div>
         </div>
+        <h1>Inquiry</h1>
+        <div class="row">
+            <div class="alert alert-info" style="display: none;" role="alert">
+                <h4>Need input!</h4> 
+                <p>Should I alert on harsh movements ?</p>
+                <p>
+                    <button type="button" class="btn btn-success" id="doWarnOnHarshMoveButton">Yep!</button>
+                    <button type="button" class="btn btn-danger" id="dontWarnOnHarshMoveButton">No</button>
+                </p>
+            </div>
+        </div>
     </div>
     <script src="Scripts/jquery-1.10.2.min.js"></script>
     <script src="Scripts/jquery.signalR-2.0.2.min.js"></script>
     <script src="Scripts/highcharts.js"></script>
+    <script src="Scripts/bootstrap.min.js"></script>
     <script src="signalr/hubs"></script>
     <script type="text/javascript">
         $(function () {
@@ -144,6 +156,20 @@
                     $('#respondToText').val());
             });
 
+            //inquiry
+            telemetry.client.onInquiry = function(deviceId) {
+                $('.alert').show();
+            };
+
+            $('#doWarnOnHarshMoveButton').click(function() {
+                telemetry.server.sendInquiryResponse(true);
+                $('.alert').hide();
+            });
+
+            $('#dontWarnOnHarshMoveButton').click(function() {
+                telemetry.server.sendInquiryResponse(false);
+                $('.alert').hide();
+            });
 
             $.connection.hub.start();
 
