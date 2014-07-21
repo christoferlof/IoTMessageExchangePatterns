@@ -22,7 +22,6 @@
                 ReceiveMode.ReceiveAndDelete);
 
             telemetryReceiver.OnMessage(OnMessage, new OnMessageOptions { AutoComplete = true });
-
             commandClient = factory.CreateTopicClient(ConfigurationManager.AppSettings["sb:inboundEntityPath"]);
         }
 
@@ -76,6 +75,14 @@
             message.Properties.Add("should-warn", shouldWarn);
             commandClient.Send(message);
             
+        }
+
+        public void SendNotification(string notification)
+        {
+            var message = new BrokeredMessage();
+            message.Properties.Add("message-type", "notification");
+            message.Properties.Add("text", notification);
+            commandClient.Send(message);
         }
 
     }

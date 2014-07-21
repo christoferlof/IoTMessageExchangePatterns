@@ -6,7 +6,6 @@ namespace TelemetryDevice
 {
     using System;
     using System.Collections;
-    using System.Threading;
 
     using Amqp;
     using Amqp.Framing;
@@ -14,6 +13,7 @@ namespace TelemetryDevice
     using Gadgeteer.Modules.GHIElectronics;
 
     using Microsoft.SPOT;
+    using Microsoft.SPOT.Presentation.Controls;
 
     public partial class Program
     {
@@ -53,7 +53,7 @@ namespace TelemetryDevice
 
             var address = new Address("[namespace].servicebus.windows.net", Issuer, Key);
 
-            TraceWrite("Initializing communication links", address.Host);
+            SetStatus("Initializing communication links", address.Host);
 
             senderConnection = new Connection(address);
             senderSession = new Session(senderConnection);
@@ -66,11 +66,13 @@ namespace TelemetryDevice
             receiver.Start(50, OnInboundMessage);
             receiver.OnClosed += (o, error) => TraceWrite("Receive Link Closed", error);
 
+            SetStatus("Communication links initialized");
+
         }
 
         private void OnInboundMessage(ReceiverLink receiverLink, Message message)
         {
-            TraceWrite("inbound message", message.ApplicationProperties);
+            TraceWrite("Inbound message", message);
 
             if (message.ApplicationProperties["message-type"] == null)
             {
@@ -89,7 +91,22 @@ namespace TelemetryDevice
                 HandleInquiryResponse(message);
             }
 
+            if (messageType == "notification")
+            {
+                HandleNotification(message);
+            }
+
             receiverLink.Accept(message);
+        }
+
+        private void HandleNotification(Message message)
+        {
+            if (message.ApplicationProperties["text"] == null)
+            {
+                return;
+            }
+
+            SetStatus("Notification: " + message.ApplicationProperties["text"]);
         }
 
         private void HandleInquiryResponse(Message message)
@@ -100,6 +117,7 @@ namespace TelemetryDevice
             }
 
             shouldWarnOnHarshMove = (bool)message.ApplicationProperties["should-warn"];
+            SetStatus("Should warn on harsh move ? " + shouldWarnOnHarshMove);
         }
 
         private void HandleCommand(Message message)
@@ -110,6 +128,7 @@ namespace TelemetryDevice
             }
 
             int fade = (int)message.ApplicationProperties["fade"];
+            SetStatus("Received Fade Command " + fade + "s");
             var timeSpan = new TimeSpan(0, 0, 0, fade);
             multicolorLed.FadeOnce(GT.Color.Cyan, timeSpan, GT.Color.Green);
 
@@ -134,8 +153,10 @@ namespace TelemetryDevice
 
         private void ProgramStarted()
         {
-            TraceWrite("Program starting");
+            InitializeDisplay();
 
+            SetStatus("Program starting");
+            
             var sampleTimer = new GT.Timer(1000);
             sampleTimer.Tick += SampleTimerOnTick;
             sampleTimer.Start();
@@ -149,7 +170,33 @@ namespace TelemetryDevice
 
             button.ButtonPressed += OnButtonPressed;
 
-            TraceWrite("Program started");
+            SetStatus("Program started");
+        }
+
+        private void SetStatus(string statusMessage, params object[] args)
+        {
+            TraceWrite(statusMessage, args);
+            statusText.Dispatcher.Invoke(
+                new TimeSpan(0, 0, 1),
+                o =>
+                    {
+                        statusText.TextContent = statusMessage; 
+                        return null;
+                    }, 
+               null);
+        }
+
+        private Text statusText;
+
+        private void InitializeDisplay()
+        {
+            var canvas = new Canvas();
+
+            statusText = new Text(Resources.GetFont(Resources.FontResources.NinaB), "Status message goes here");
+
+            canvas.Children.Add(statusText);
+
+            display_T35.WPFWindow.Child = canvas;
         }
 
         private void OnButtonPressed(Button o, Button.ButtonState state)
@@ -197,7 +244,7 @@ namespace TelemetryDevice
 
         private void SendMessage(Message message)
         {
-            TraceWrite("Send", message.ApplicationProperties);
+            TraceWrite("Send", message);
             sender.Send(message, OnOutboundMessageOutcome, null);
         }
 

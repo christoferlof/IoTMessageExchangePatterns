@@ -30,6 +30,9 @@ namespace TelemetryDevice {
         /// <summary>The MulticolorLed module using socket 11 of the mainboard.</summary>
         private Gadgeteer.Modules.GHIElectronics.MulticolorLed multicolorLed;
         
+        /// <summary>The Display_T35 module using sockets 14, 13, 12 and 10 of the mainboard.</summary>
+        private Gadgeteer.Modules.GHIElectronics.Display_T35 display_T35;
+        
         /// <summary>This property provides access to the Mainboard API. This is normally not necessary for an end user program.</summary>
         protected new static GHIElectronics.Gadgeteer.FEZSpider Mainboard {
             get {
@@ -57,6 +60,7 @@ namespace TelemetryDevice {
             this.button = new GTM.GHIElectronics.Button(4);
             this.ethernet_J11D = new GTM.GHIElectronics.Ethernet_J11D(7);
             this.multicolorLed = new GTM.GHIElectronics.MulticolorLed(11);
+            this.display_T35 = new GTM.GHIElectronics.Display_T35(14, 13, 12, 10);
         }
     }
 }

@@ -13,7 +13,7 @@
         <h1>Telemetry</h1>
         <div class="row">
             <div class="col-md-6 scrollable">
-                <ul id="telemetryMessages"></ul>      
+                <ul id="telemetryMessages"></ul>
             </div>
             <div class="col-md-6" id="chart">
             </div>
@@ -24,7 +24,7 @@
                 <form role="form">
                     <div class="form-group">
                         <label for="fadeDurationText">LED fade duration</label>
-                        <input type="text" class="form-control" id="fadeDurationText"/>
+                        <input type="text" class="form-control" id="fadeDurationText" />
                     </div>
                     <div class="form-group">
                         <label for="respondToText">Respond to</label>
@@ -42,12 +42,29 @@
         <h1>Inquiry</h1>
         <div class="row">
             <div class="alert alert-info" style="display: none;" role="alert">
-                <h4>Need input!</h4> 
+                <h4>Need input!</h4>
                 <p>Should I alert on harsh movements ?</p>
                 <p>
                     <button type="button" class="btn btn-success" id="doWarnOnHarshMoveButton">Yep!</button>
                     <button type="button" class="btn btn-danger" id="dontWarnOnHarshMoveButton">No</button>
                 </p>
+            </div>
+        </div>
+        <h1>Notification</h1>
+        <div class="row">
+            <div class="col-md-6">
+                <form role="form">
+                    <div class="form-group">
+                        <label for="notificationText">Notification text</label>
+                        <input type="text" class="form-control" id="notificationText" />
+                    </div>
+                    <div class="form-group">
+                        <button type="button" class="btn btn-primary" id="notificationButton">Notify</button>
+                    </div>
+                </form>
+            </div>
+            <div class="col-md-6 scrollable">
+                <ul id="notificationMessages"></ul>
             </div>
         </div>
     </div>
@@ -81,7 +98,7 @@
                     + '</strong>:&nbsp;&nbsp;X:' + encodedX + '&nbsp; Y: ' + encodedY + '</li>');
             };
 
-            telemetry.client.onCommandResponseMessage = function(status, receiptient) {
+            telemetry.client.onCommandResponseMessage = function (status, receiptient) {
                 var encodedStatus = $('<div />').text(status).html();
                 var encodedReceiptient = $('<div />').text(receiptient).html();
 
@@ -89,7 +106,7 @@
                     + '</strong>:&nbsp;&nbsp;Status:' + encodedStatus + '</li>');
             };
 
-            var initialSeriesData = function() {
+            var initialSeriesData = function () {
                 var data = [],
                     time = (new Date()).getTime(),
                     i;
@@ -108,7 +125,7 @@
                     type: 'spline',
                     animation: Highcharts.svg,
                     events: {
-                        load: function() {
+                        load: function () {
                             var seriesY = this.series[0];
                             var seriesX = this.series[1];
                             setInterval(function () {
@@ -132,7 +149,7 @@
                     title: {
                         text: 'Force'
                     },
-                    plotLines : [
+                    plotLines: [
                     {
                         value: 0,
                         width: 1,
@@ -148,7 +165,7 @@
                     data: initialSeriesData()
                 }]
             });
-            
+
             // command
             $('#fadeLedButton').click(function () {
                 telemetry.server.sendCommand(
@@ -157,18 +174,25 @@
             });
 
             //inquiry
-            telemetry.client.onInquiry = function(deviceId) {
+            telemetry.client.onInquiry = function (deviceId) {
                 $('.alert').show();
             };
 
-            $('#doWarnOnHarshMoveButton').click(function() {
+            $('#doWarnOnHarshMoveButton').click(function () {
                 telemetry.server.sendInquiryResponse(true);
                 $('.alert').hide();
             });
 
-            $('#dontWarnOnHarshMoveButton').click(function() {
+            $('#dontWarnOnHarshMoveButton').click(function () {
                 telemetry.server.sendInquiryResponse(false);
                 $('.alert').hide();
+            });
+
+            // notification
+            $('#notificationButton').click(function () {
+                var notification = $('#notificationText').val();
+                telemetry.server.sendNotification(notification);
+                $('#notificationMessages').append('<li>' + notification + '&nbsp;sent</li>');
             });
 
             $.connection.hub.start();
