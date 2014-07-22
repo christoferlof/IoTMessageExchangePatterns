@@ -119,4 +119,7 @@
       <Name>Amqp.NetMF</Name>
     </ProjectReference>
   </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\qrcode.jpeg" />
+  </ItemGroup>
 </Project>

@@ -46,12 +46,12 @@ namespace TelemetryDevice
 
         private void InitializeCommunicationLinks()
         {
-            const string Issuer = "owner";
+            const string Issuer = "[issuer]";
             const string Key = "[key]";
             const string OutEntity = "outbound";
             const string InEntity = "inbound/Subscriptions/device001";
 
-            var address = new Address("[namespace].servicebus.windows.net", Issuer, Key);
+            var address = new Address("[ns].servicebus.windows.net", Issuer, Key);
 
             SetStatus("Initializing communication links", address.Host);
 
@@ -193,8 +193,12 @@ namespace TelemetryDevice
             var canvas = new Canvas();
 
             statusText = new Text(Resources.GetFont(Resources.FontResources.NinaB), "Status message goes here");
-
             canvas.Children.Add(statusText);
+
+            var qrCode = new Image(new Bitmap(Resources.GetBytes(Resources.BinaryResources.qrcode), Bitmap.BitmapImageType.Jpeg)); //device001
+            Canvas.SetTop(qrCode, 20);
+            Canvas.SetLeft(qrCode, 10);
+            canvas.Children.Add(qrCode);
 
             display_T35.WPFWindow.Child = canvas;
         }
