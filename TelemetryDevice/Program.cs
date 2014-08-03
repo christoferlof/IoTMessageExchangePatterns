@@ -1,6 +1,5 @@
 ﻿using GT = Gadgeteer;
 using GTM = Gadgeteer.Modules;
-using Gadgeteer.Modules.GHIElectronics;
 
 namespace TelemetryDevice
 {
@@ -17,23 +16,35 @@ namespace TelemetryDevice
 
     public partial class Program
     {
+        #region Fields
+
         private readonly Queue sendQueue = new Queue();
 
-        private Connection senderConnection;
-        
-        private Connection receiverConnection;
-
-        private SenderLink sender;
-
-        private ReceiverLink receiver;
-
-        private Session senderSession;
-        
-        private Session receiverSession;
+        private bool isWarning;
 
         private GT.Timer ledTimer;
 
+        private ReceiverLink receiver;
+
+        private Connection receiverConnection;
+
+        private Session receiverSession;
+
+        private GT.Timer sendTimer;
+
+        private SenderLink sender;
+
+        private Connection senderConnection;
+
+        private Session senderSession;
+
         private bool shouldWarnOnHarshMove = true;
+
+        private Text statusText;
+
+        #endregion
+
+        #region Methods
 
         private static void TraceWrite(string format, params object[] args)
         {
@@ -42,6 +53,59 @@ namespace TelemetryDevice
             {
                 Debug.Print(" - " + o);
             }
+        }
+
+        private Message CreateMessage(string messageType)
+        {
+            var message = new Message();
+            message.ApplicationProperties = new ApplicationProperties();
+            message.ApplicationProperties["message-type"] = messageType;
+            message.ApplicationProperties["device-id"] = "device001";
+            return message;
+        }
+
+        private void HandleCommand(Message message)
+        {
+            if (message.ApplicationProperties["fade"] == null)
+            {
+                return;
+            }
+
+            var fade = (int)message.ApplicationProperties["fade"];
+            SetStatus("Received Fade Command " + fade + "s");
+            var timeSpan = new TimeSpan(0, 0, 0, fade);
+            multicolorLed.FadeOnce(GT.Color.Cyan, timeSpan, GT.Color.Green);
+
+            //turn of led
+            ledTimer.Interval = timeSpan;
+            ledTimer.Start();
+
+            // send response
+            Message response = CreateMessage("command-response");
+            response.ApplicationProperties["status"] = "ok";
+            response.ApplicationProperties["receiptient"] = message.ApplicationProperties["respondTo"];
+            SendMessage(response);
+        }
+
+        private void HandleInquiryResponse(Message message)
+        {
+            if (message.ApplicationProperties["should-warn"] == null)
+            {
+                return;
+            }
+
+            shouldWarnOnHarshMove = (bool)message.ApplicationProperties["should-warn"];
+            SetStatus("Should warn on harsh move ? " + shouldWarnOnHarshMove);
+        }
+
+        private void HandleNotification(Message message)
+        {
+            if (message.ApplicationProperties["text"] == null)
+            {
+                return;
+            }
+
+            SetStatus("Notification: " + message.ApplicationProperties["text"]);
         }
 
         private void InitializeCommunicationLinks()
@@ -67,7 +131,35 @@ namespace TelemetryDevice
             receiver.OnClosed += (o, error) => TraceWrite("Receive Link Closed", error);
 
             SetStatus("Communication links initialized");
+        }
 
+        private void InitializeDisplay()
+        {
+            var canvas = new Canvas();
+
+            statusText = new Text(Resources.GetFont(Resources.FontResources.NinaB), "Status message goes here");
+            canvas.Children.Add(statusText);
+
+            var qrCode =
+                new Image(new Bitmap(Resources.GetBytes(Resources.BinaryResources.qrcode), Bitmap.BitmapImageType.Jpeg));
+                //device001
+            Canvas.SetTop(qrCode, 20);
+            Canvas.SetLeft(qrCode, 10);
+            canvas.Children.Add(qrCode);
+
+            display_T35.WPFWindow.Child = canvas;
+        }
+
+        private void LedTimerOnTick(GT.Timer timer)
+        {
+            ledTimer.Stop();
+            multicolorLed.TurnOff();
+            isWarning = false;
+        }
+
+        private void OnButtonPressed(Button o, Button.ButtonState state)
+        {
+            sendQueue.Enqueue(CreateMessage("inquiry"));
         }
 
         private void OnInboundMessage(ReceiverLink receiverLink, Message message)
@@ -79,11 +171,11 @@ namespace TelemetryDevice
                 return;
             }
 
-            string messageType = (string)message.ApplicationProperties["message-type"];
-            
+            var messageType = (string)message.ApplicationProperties["message-type"];
+
             if (messageType == "command")
             {
-                HandleCommand(message);    
+                HandleCommand(message);
             }
 
             if (messageType == "inquiry-response")
@@ -99,55 +191,11 @@ namespace TelemetryDevice
             receiverLink.Accept(message);
         }
 
-        private void HandleNotification(Message message)
-        {
-            if (message.ApplicationProperties["text"] == null)
-            {
-                return;
-            }
-
-            SetStatus("Notification: " + message.ApplicationProperties["text"]);
-        }
-
-        private void HandleInquiryResponse(Message message)
-        {
-            if (message.ApplicationProperties["should-warn"] == null)
-            {
-                return;
-            }
-
-            shouldWarnOnHarshMove = (bool)message.ApplicationProperties["should-warn"];
-            SetStatus("Should warn on harsh move ? " + shouldWarnOnHarshMove);
-        }
-
-        private void HandleCommand(Message message)
-        {
-            if (message.ApplicationProperties["fade"] == null)
-            {
-                return;
-            }
-
-            int fade = (int)message.ApplicationProperties["fade"];
-            SetStatus("Received Fade Command " + fade + "s");
-            var timeSpan = new TimeSpan(0, 0, 0, fade);
-            multicolorLed.FadeOnce(GT.Color.Cyan, timeSpan, GT.Color.Green);
-
-            //turn of led
-            ledTimer.Interval = timeSpan;
-            ledTimer.Start();
-
-            // send response
-            Message response = CreateMessage("command-response");
-            response.ApplicationProperties["status"] = "ok";
-            response.ApplicationProperties["receiptient"] = message.ApplicationProperties["respondTo"];
-            SendMessage(response);
-        }
-
         private void OnOutboundMessageOutcome(Message message, Outcome outcome, object state)
         {
             TraceWrite("Message Outcome", message.ApplicationProperties["ts"], outcome);
             // todo: handle rejected messages with retrires
-            
+
             SendNextMessage();
         }
 
@@ -156,7 +204,7 @@ namespace TelemetryDevice
             InitializeDisplay();
 
             SetStatus("Program starting");
-            
+
             var sampleTimer = new GT.Timer(1000);
             sampleTimer.Tick += SampleTimerOnTick;
             sampleTimer.Start();
@@ -172,52 +220,6 @@ namespace TelemetryDevice
 
             SetStatus("Program started");
         }
-
-        private void SetStatus(string statusMessage, params object[] args)
-        {
-            TraceWrite(statusMessage, args);
-            statusText.Dispatcher.Invoke(
-                new TimeSpan(0, 0, 1),
-                o =>
-                    {
-                        statusText.TextContent = statusMessage; 
-                        return null;
-                    }, 
-               null);
-        }
-
-        private Text statusText;
-
-        private void InitializeDisplay()
-        {
-            var canvas = new Canvas();
-
-            statusText = new Text(Resources.GetFont(Resources.FontResources.NinaB), "Status message goes here");
-            canvas.Children.Add(statusText);
-
-            var qrCode = new Image(new Bitmap(Resources.GetBytes(Resources.BinaryResources.qrcode), Bitmap.BitmapImageType.Jpeg)); //device001
-            Canvas.SetTop(qrCode, 20);
-            Canvas.SetLeft(qrCode, 10);
-            canvas.Children.Add(qrCode);
-
-            display_T35.WPFWindow.Child = canvas;
-        }
-
-        private void OnButtonPressed(Button o, Button.ButtonState state)
-        {
-            sendQueue.Enqueue(CreateMessage("inquiry"));
-        }
-
-        private void LedTimerOnTick(GT.Timer timer)
-        {
-            ledTimer.Stop();
-            multicolorLed.TurnOff();
-            isWarning = false;
-        }
-
-        private bool isWarning;
-
-        private GT.Timer sendTimer;
 
         private void SampleTimerOnTick(GT.Timer timer)
         {
@@ -241,7 +243,7 @@ namespace TelemetryDevice
                 multicolorLed.BlinkRepeatedly(GT.Color.Black, pulse, GT.Color.Red, pulse);
 
                 //turn of led in 2sec
-                ledTimer.Interval = new TimeSpan(0,0,0,2);
+                ledTimer.Interval = new TimeSpan(0, 0, 0, 2);
                 ledTimer.Start();
             }
         }
@@ -252,13 +254,15 @@ namespace TelemetryDevice
             sender.Send(message, OnOutboundMessageOutcome, null);
         }
 
-        private Message CreateMessage(string messageType)
+        private void SendNextMessage()
         {
-            var message = new Message();
-            message.ApplicationProperties = new ApplicationProperties();
-            message.ApplicationProperties["message-type"] = messageType;
-            message.ApplicationProperties["device-id"] = "device001";
-            return message;
+            if (sendQueue.Count == 0)
+            {
+                sendTimer.Start();
+                return;
+            }
+
+            SendMessage((Message)sendQueue.Dequeue());
         }
 
         private void SendTimerOnTick(GT.Timer timer)
@@ -273,15 +277,19 @@ namespace TelemetryDevice
             SendNextMessage();
         }
 
-        private void SendNextMessage()
+        private void SetStatus(string statusMessage, params object[] args)
         {
-            if (sendQueue.Count == 0)
-            {
-                sendTimer.Start();
-                return;
-            }
-
-            SendMessage((Message)sendQueue.Dequeue());
+            TraceWrite(statusMessage, args);
+            statusText.Dispatcher.Invoke(
+                new TimeSpan(0, 0, 1),
+                o =>
+                    {
+                        statusText.TextContent = statusMessage;
+                        return null;
+                    },
+                null);
         }
+
+        #endregion
     }
 }

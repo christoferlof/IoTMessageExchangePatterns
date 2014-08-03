@@ -1,34 +1,30 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace ConsoleTool
+﻿namespace ConsoleTool
 {
+    using System;
     using System.Diagnostics;
-    using System.IO;
-    using System.Runtime.Remoting.Messaging;
 
     using Amqp;
     using Amqp.Framing;
 
+    using Trace = Amqp.Trace;
     using TraceLevel = Amqp.TraceLevel;
 
-    class Program
+    internal class Program
     {
-        static void Main(string[] args)
+        #region Methods
+
+        private static void Main(string[] args)
         {
-            Amqp.Trace.TraceLevel = TraceLevel.Frame | TraceLevel.Verbose;
-            Amqp.Trace.TraceListener = TraceWrite;
+            Trace.TraceLevel = TraceLevel.Frame | TraceLevel.Verbose;
+            Trace.TraceListener = TraceWrite;
 
-            var issuer = "[issuer]";
-            var key = "[key]";
-            var ns = "[namespace]";
+            string issuer = "[issuer]";
+            string key = "[key]";
+            string ns = "[namespace]";
 
-            var broker = "amqps://{0}:{1}@{2}.servicebus.windows.net";
+            string broker = "amqps://{0}:{1}@{2}.servicebus.windows.net";
             var address = new Address(string.Format(broker, issuer, key, ns));
-            
+
             var connection = new Connection(address);
             var senderSession = new Session(connection);
             var sender = new SenderLink(senderSession, "send-linkt1", "t1");
@@ -36,12 +32,11 @@ namespace ConsoleTool
             for (int i = 0; i < 200; ++i)
             {
                 var message = new Message();
-                message.Properties = new Properties() { GroupId = "1" };
+                message.Properties = new Properties { GroupId = "1" };
                 message.ApplicationProperties = new ApplicationProperties();
                 message.ApplicationProperties["sn"] = i;
                 TraceWrite("send: {0}", message.ApplicationProperties["sn"]);
                 sender.Send(message, MessageOutComeCallback, null);
-
             }
 
             Console.Read();
@@ -62,9 +57,8 @@ namespace ConsoleTool
 
             //receiver.Close();
             //receiverSession.Close();
-            
-            connection.Close();
 
+            connection.Close();
         }
 
         private static void MessageOutComeCallback(Message message, Outcome outcome, object state)
@@ -77,5 +71,7 @@ namespace ConsoleTool
             Console.WriteLine(format, args);
             Debug.WriteLine(format, args);
         }
+
+        #endregion
     }
 }

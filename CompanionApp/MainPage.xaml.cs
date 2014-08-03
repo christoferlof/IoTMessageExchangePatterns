@@ -1,50 +1,39 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Net;
-using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Navigation;
-using Microsoft.Phone.Controls;
-using Microsoft.Phone.Shell;
-using CompanionApp.Resources;
-
-namespace CompanionApp
+﻿namespace CompanionApp
 {
     using System.Diagnostics;
+    using System.Windows;
+    using System.Windows.Navigation;
 
     using Amqp;
     using Amqp.Framing;
 
+    using Microsoft.Phone.Controls;
+    using Microsoft.Phone.Info;
     using Microsoft.Phone.Tasks;
 
     using OpticalReaderLib;
 
     public partial class MainPage : PhoneApplicationPage
     {
+        private Connection connection;
+
+        private string deviceId;
+
         private OpticalReaderResult opticalReaderResult;
 
-        // Constructor
+        private SenderLink sender;
+
+        private Session session;
+
         public MainPage()
         {
             InitializeComponent();
 
-            Amqp.Trace.TraceLevel = TraceLevel.Frame | TraceLevel.Verbose;
-            Amqp.Trace.TraceListener = TraceWrite;
+            Trace.TraceLevel = TraceLevel.Frame | TraceLevel.Verbose;
+            Trace.TraceListener = TraceWrite;
         }
 
-        private void TraceWrite(string format, object[] args)
-        {
-            Debug.WriteLine(format, args);
-        }
-
-        private void OnButtonClick(object sender, RoutedEventArgs e)
-        {
-            var opticalReaderTask = new OpticalReaderTask();
-            opticalReaderTask.Completed += (o, result) => opticalReaderResult = result;
-            opticalReaderTask.Show();
-        }
-
+        
         protected override void OnNavigatedTo(NavigationEventArgs e)
         {
             base.OnNavigatedTo(e);
@@ -58,14 +47,6 @@ namespace CompanionApp
 
             opticalReaderResult = null;
         }
-
-        private Connection connection;
-
-        private Session session;
-
-        private SenderLink sender;
-
-        private string deviceId;
 
         private void InitializeCommunicationLink()
         {
@@ -86,12 +67,23 @@ namespace CompanionApp
             sender.OnClosed += (o, error) => Debug.WriteLine("SenderLink closed: {0}", error);
         }
 
+        private void OnButtonClick(object sender, RoutedEventArgs e)
+        {
+            var opticalReaderTask = new OpticalReaderTask();
+            opticalReaderTask.Completed += (o, result) => opticalReaderResult = result;
+            opticalReaderTask.Show();
+        }
+
         private void OnFadeLedButtonClick(object o, RoutedEventArgs e)
         {
             InitializeCommunicationLink();
 
             SendCommand();
+        }
 
+        private void OnMessageOutcome(Message message, Outcome outcome, object state)
+        {
+            Debug.WriteLine("message oucome - {0}", outcome);
         }
 
         private void SendCommand()
@@ -102,14 +94,14 @@ namespace CompanionApp
             message.ApplicationProperties = new ApplicationProperties();
             message.ApplicationProperties["message-type"] = "command";
             message.ApplicationProperties["fade"] = 3;
-            message.ApplicationProperties["respondTo"] = Microsoft.Phone.Info.DeviceStatus.DeviceName;
-                //just get something for now.. 
+            message.ApplicationProperties["respondTo"] = DeviceStatus.DeviceName;
+            //just get something for now.. 
             sender.Send(message, OnMessageOutcome, null);
         }
 
-        private void OnMessageOutcome(Message message, Outcome outcome, object state)
+        private void TraceWrite(string format, object[] args)
         {
-            Debug.WriteLine("message oucome - {0}", outcome);
+            Debug.WriteLine(format, args);
         }
     }
 }
