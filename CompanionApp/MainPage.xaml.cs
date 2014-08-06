@@ -1,43 +1,40 @@
 ﻿namespace CompanionApp
 {
     using System.Diagnostics;
+    using System.Threading.Tasks;
     using System.Windows;
     using System.Windows.Navigation;
 
-    using Amqp;
-    using Amqp.Framing;
-
+    using Microsoft.AspNet.SignalR.Client;
     using Microsoft.Phone.Controls;
-    using Microsoft.Phone.Info;
     using Microsoft.Phone.Tasks;
 
     using OpticalReaderLib;
 
     public partial class MainPage : PhoneApplicationPage
     {
-        private Connection connection;
 
         private string deviceId;
 
         private OpticalReaderResult opticalReaderResult;
 
-        private SenderLink sender;
+        private HubConnection connection;
 
-        private Session session;
+        private IHubProxy hubProxy;
 
         public MainPage()
         {
             InitializeComponent();
-
-            Trace.TraceLevel = TraceLevel.Frame | TraceLevel.Verbose;
-            Trace.TraceListener = TraceWrite;
         }
 
-        
         protected override void OnNavigatedTo(NavigationEventArgs e)
         {
             base.OnNavigatedTo(e);
+            HandleQrResponse();
+        }
 
+        private void HandleQrResponse()
+        {
             if (opticalReaderResult != null && opticalReaderResult.TaskResult == TaskResult.OK)
             {
                 deviceId = opticalReaderResult.Text;
@@ -48,23 +45,14 @@
             opticalReaderResult = null;
         }
 
-        private void InitializeCommunicationLink()
+        private async Task EnsureCommunicationLink()
         {
-            if (sender != null)
+            if (connection == null)
             {
-                return;
+                connection = new HubConnection("http://localhost:3081/");
+                hubProxy = connection.CreateHubProxy("TelemetryHub");
+                await connection.Start();
             }
-
-            const string Issuer = "[issuer]";
-            const string Key = "[key]";
-            const string Entity = "inbound";
-
-            var address = new Address("chrislofsb.servicebus.windows.net", Issuer, Key);
-
-            connection = new Connection(address);
-            session = new Session(connection);
-            sender = new SenderLink(session, "send-link" + Entity, Entity);
-            sender.OnClosed += (o, error) => Debug.WriteLine("SenderLink closed: {0}", error);
         }
 
         private void OnButtonClick(object sender, RoutedEventArgs e)
@@ -74,34 +62,16 @@
             opticalReaderTask.Show();
         }
 
-        private void OnFadeLedButtonClick(object o, RoutedEventArgs e)
+        private async void OnFadeLedButtonClick(object o, RoutedEventArgs e)
         {
-            InitializeCommunicationLink();
+            await EnsureCommunicationLink();
 
-            SendCommand();
+            await SendCommand();
         }
 
-        private void OnMessageOutcome(Message message, Outcome outcome, object state)
+        private async Task SendCommand()
         {
-            Debug.WriteLine("message oucome - {0}", outcome);
-        }
-
-        private void SendCommand()
-        {
-            var message = new Message();
-            message.Properties = new Properties();
-            message.Properties.To = deviceId;
-            message.ApplicationProperties = new ApplicationProperties();
-            message.ApplicationProperties["message-type"] = "command";
-            message.ApplicationProperties["fade"] = 3;
-            message.ApplicationProperties["respondTo"] = DeviceStatus.DeviceName;
-            //just get something for now.. 
-            sender.Send(message, OnMessageOutcome, null);
-        }
-
-        private void TraceWrite(string format, object[] args)
-        {
-            Debug.WriteLine(format, args);
+            await hubProxy.Invoke("SendCommand", 5 /* led fade duration */ , "My Companion App Id" /* respond to */);
         }
     }
 }
